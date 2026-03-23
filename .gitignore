@@ -1,0 +1,34 @@
+# Build output
+/build/
+*.elf
+*.bin
+*.map
+*.hex
+*.img
+
+# SDK config
+sdkconfig
+
+# CMake cache & intermediate files
+CMakeCache.txt
+CMakeFiles/
+Makefile
+*.cmake
+compile_commands.json
+
+# IDF tools & python env
+.esp-idf/
+.venv/
+pip-selfcheck.json
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+*.DS_Store
+
+# Logs
+*.log
