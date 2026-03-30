@@ -1,5 +1,6 @@
 #include "rmt_led_driver.h"
 
+
 static const char *TAG = "RMT_LED_DRIVER";
 
 extern esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rmt_encoder_handle_t *ret_encoder, TypeLed led);
@@ -7,13 +8,14 @@ extern esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *con
 static esp_err_t rmt_led_init_channel0(rmt_led_t* rmt);
 static esp_err_t rmt_led_init_channel1(rmt_led_t* rmt);
 
-esp_err_t rmt_led_init(rmt_led_t* rmt, bool sync_support)
+esp_err_t rmt_led_init(rmt_led_t* rmt)
 {
 
     if( rmt_led_init_channel0(rmt) != ESP_OK) return ESP_FAIL;
     if( rmt_led_init_channel1(rmt) != ESP_OK) return ESP_FAIL;
 
-    if(sync_support == true) {
+    #if (defined(SOC_RMT_SUPPORT_TX_SYNCHRO) &&  (SOC_RMT_SUPPORT_TX_SYNCHRO == 1))
+    {
         // install sync manager
         rmt->sync.channel_list[0] = rmt->channel0.handl;
         rmt->sync.channel_list[1] = rmt->channel1.handl;
@@ -26,7 +28,8 @@ esp_err_t rmt_led_init(rmt_led_t* rmt, bool sync_support)
         ESP_ERROR_CHECK(ret);
         if(ret != ESP_OK) return ESP_FAIL;
     }
-   
+    #endif
+
     return ESP_OK;
 }
 
@@ -51,9 +54,19 @@ static esp_err_t rmt_led_init_channel0(rmt_led_t* rmt)
         rmt_tx_channel_config_t config_channel0 = {
             .clk_src = RMT_CLK_SRC_DEFAULT, // select source clock
             .gpio_num = RMT_CHANNEL0_GPIO_NUM,
-            .mem_block_symbols = 64, // increase the block size can make the LED less flickering
             .resolution_hz = RMT_RESOLUTION_HZ,
             .trans_queue_depth = 4, // set the number of transactions that can be pending in the background
+
+            #if (defined(SOC_RMT_SUPPORT_DMA) && (SOC_RMT_SUPPORT_DMA == 1))
+                .mem_block_symbols = 1024,
+                .flags.invert_out = false,
+                .flags.with_dma = true
+            #else
+                .mem_block_symbols = 64,
+                .flags.invert_out = false,
+                .flags.with_dma = false
+            #endif
+
         };
         esp_err_t ret = rmt_new_tx_channel(&config_channel0, &rmt->channel0.handl);    
         ESP_ERROR_CHECK(ret);
@@ -98,9 +111,18 @@ static esp_err_t rmt_led_init_channel1(rmt_led_t* rmt)
         rmt_tx_channel_config_t config_channel1 = {
             .clk_src = RMT_CLK_SRC_DEFAULT, // select source clock
             .gpio_num = RMT_CHANNEL1_GPIO_NUM,
-            .mem_block_symbols = 64, // increase the block size can make the LED less flickering
             .resolution_hz = RMT_RESOLUTION_HZ,
             .trans_queue_depth = 4, // set the number of transactions that can be pending in the background
+
+            #if (defined(SOC_RMT_SUPPORT_DMA) && (SOC_RMT_SUPPORT_DMA == 1))
+                .mem_block_symbols = 1024,
+                .flags.invert_out = false,
+                .flags.with_dma = true
+            #else
+                .mem_block_symbols = 64,
+                .flags.invert_out = false,
+                .flags.with_dma = false
+            #endif                        
         };
         esp_err_t ret = rmt_new_tx_channel(&config_channel1, &rmt->channel1.handl);    
         ESP_ERROR_CHECK(ret);

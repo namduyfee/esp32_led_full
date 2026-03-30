@@ -59,6 +59,6 @@ typedef struct {
 
 } rmt_led_t;
 
-esp_err_t rmt_led_init(rmt_led_t* rmt, bool sync_support); 
+esp_err_t rmt_led_init(rmt_led_t* rmt); 
 
 #endif
