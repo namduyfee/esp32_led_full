@@ -12,13 +12,18 @@
 
 #include "main.h"
 #include "rmt_led_driver.h"
+#include "dac_audio_driver.h"
+#include "dac_audio_test.h"
 
 
 void task_strip_led(void* param);
+void task_audio_dac_internal(void* param);
 
 struct {
     esp_chip_info_t chip_info;
     rmt_led_t led_rmt;
+    dac_audio_t dac_audio;
+
 } SLT;
 
 
@@ -33,6 +38,7 @@ void my_init(void)
 
     if(rmt_led_init(&SLT.led_rmt) != ESP_OK) esp_restart();
 
+    if(dac_audio_init(&SLT.dac_audio) != ESP_OK) esp_restart();
 }
 
 void app_main(void)
@@ -40,6 +46,7 @@ void app_main(void)
 
     my_init();
     xTaskCreate(task_strip_led, "task_strip_led", 1024, NULL, 4, NULL);
+    xTaskCreate(task_audio_dac_internal, "task_audio_dac_internal", 1024, NULL, 4, NULL);
 
 }
 
@@ -70,4 +77,37 @@ void task_strip_led(void* param)
         vTaskDelay(pdMS_TO_TICKS(500));
     }
 
+}
+
+/**
+ * @brief   creat audio signals by dac internal
+ * @note
+ *  - dac descriptors is like ring buffer; not index. SO start from any descriptor is not important
+ *    data copied into descriptors must continuous, that's important
+ */
+void task_audio_dac_internal(void* param) 
+{
+    size_t data_size = sizeof(audio_table);
+    const uint8_t* data = audio_table;
+
+    ESP_ERROR_CHECK(dac_continuous_start_async_writing(SLT.dac_audio.continuous_handle));
+
+    while(1) 
+    {
+        size_t byte_written = 0;
+        dac_event_data_t evt_data;
+        while(byte_written < data_size) {
+            xQueueReceive(SLT.dac_audio.even_data_q, &evt_data, portMAX_DELAY);
+            size_t loaded_bytes = 0;
+            ESP_ERROR_CHECK(dac_continuous_write_asynchronously(SLT.dac_audio.continuous_handle, evt_data.buf, evt_data.buf_size,
+                            data + byte_written, data_size - byte_written, &loaded_bytes));
+            byte_written += loaded_bytes;
+        }
+        /** set all desc to 0 */
+        for (int i = 0; i < DAC_NUM_OF_DESC; i++) {
+            xQueueReceive(SLT.dac_audio.even_data_q, &evt_data, portMAX_DELAY);
+            memset(evt_data.buf, 0, evt_data.buf_size);
+        }
+        vTaskDelay(pdMS_TO_TICKS(1000));        
+    }
 }
