@@ -36,7 +36,7 @@ void my_init(void)
     printf("Revision: %d\n",   SLT.chip_info.revision);
     printf("Features: %lx\n",  SLT.chip_info.features);
 
-    if(rmt_led_init(&SLT.led_rmt) != ESP_OK) esp_restart();
+ //   if(rmt_led_init(&SLT.led_rmt) != ESP_OK) esp_restart();
 
     if(dac_audio_init(&SLT.dac_audio) != ESP_OK) esp_restart();
 }
@@ -45,7 +45,7 @@ void app_main(void)
 {
 
     my_init();
-    xTaskCreate(task_strip_led, "task_strip_led", 1024, NULL, 4, NULL);
+ //   xTaskCreate(task_strip_led, "task_strip_led", 1024, NULL, 4, NULL);
     xTaskCreate(task_audio_dac_internal, "task_audio_dac_internal", 1024, NULL, 4, NULL);
 
 }
@@ -67,7 +67,6 @@ void task_strip_led(void* param)
     while(1) 
     {
         
-
         ESP_ERROR_CHECK(rmt_transmit(SLT.led_rmt.channel0.handl, SLT.led_rmt.channel0.encoder.handl,led_strip_pixels, NUM_OF_BYTE, &SLT.led_rmt.channel0.trans_conf));
         ESP_ERROR_CHECK(rmt_transmit(SLT.led_rmt.channel1.handl, SLT.led_rmt.channel1.encoder.handl,led_strip_pixels, NUM_OF_BYTE, &SLT.led_rmt.channel1.trans_conf));
         
@@ -87,27 +86,33 @@ void task_strip_led(void* param)
  */
 void task_audio_dac_internal(void* param) 
 {
-    size_t data_size = sizeof(audio_table);
-    const uint8_t* data = audio_table;
+    size_t data_size = sizeof(audio_test);
+    const uint8_t* data = audio_test;
 
     ESP_ERROR_CHECK(dac_continuous_start_async_writing(SLT.dac_audio.continuous_handle));
-
     while(1) 
     {
         size_t byte_written = 0;
         dac_event_data_t evt_data;
+        int i = 0;
+        printf("data_size : %d\n", data_size);
         while(byte_written < data_size) {
             xQueueReceive(SLT.dac_audio.even_data_q, &evt_data, portMAX_DELAY);
             size_t loaded_bytes = 0;
             ESP_ERROR_CHECK(dac_continuous_write_asynchronously(SLT.dac_audio.continuous_handle, evt_data.buf, evt_data.buf_size,
                             data + byte_written, data_size - byte_written, &loaded_bytes));
+
+            ESP_LOGI("SEND AUDIO", "addresst desc : %p packet : %d, evt_buf_size: %d, loaded_byte: %d, byte_cl : %d",evt_data.buf, i, evt_data.buf_size, loaded_bytes, data_size - byte_written);
+
             byte_written += loaded_bytes;
+           
+            i++;
         }
         /** set all desc to 0 */
         for (int i = 0; i < DAC_NUM_OF_DESC; i++) {
             xQueueReceive(SLT.dac_audio.even_data_q, &evt_data, portMAX_DELAY);
             memset(evt_data.buf, 0, evt_data.buf_size);
         }
-        vTaskDelay(pdMS_TO_TICKS(1000));        
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }

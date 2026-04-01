@@ -27,7 +27,7 @@ esp_err_t dac_audio_init(dac_audio_t* dac_audio)
     if(ret != ESP_OK) return ESP_FAIL;
 
     /* Create a queue to transport the interrupt event data */
-    dac_audio->even_data_q = xQueueCreate(10, sizeof(dac_event_data_t));
+    dac_audio->even_data_q = xQueueCreate(20, sizeof(dac_event_data_t));
     if (dac_audio->even_data_q == NULL) return ESP_FAIL;
 
     dac_event_callbacks_t cbs = {
@@ -42,7 +42,6 @@ esp_err_t dac_audio_init(dac_audio_t* dac_audio)
     /* Enable the continuous channels */
     ESP_ERROR_CHECK(dac_continuous_enable(dac_audio->continuous_handle));
     ESP_LOGI(TAG, "DAC initialized success, DAC DMA is ready");
-
     return ESP_OK;
 }
 
