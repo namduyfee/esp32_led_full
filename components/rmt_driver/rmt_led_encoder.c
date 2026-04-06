@@ -85,20 +85,19 @@ esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rm
     led_encoder->base.reset = rmt_led_strip_encoder_reset;
     led_encoder->state = 0;   // or RMT_ENCODING_RESET
     
-    if(led == LED1903) 
-    {
+    if(led == LED1903) {
         rmt_bytes_encoder_config_t bytes_encoder_config = {
             .bit0 = {
                 .level0 = 1,
-                .duration0 = (0.5 * config->resolution) / 1000000, // T0H=0.5us
+                .duration0 = (0.2 * config->resolution) / 1000000, // T0H=200ns
                 .level1 = 0,
-                .duration1 = (2.0 * config->resolution) / 1000000, // T0L=2.0us
+                .duration1 = (1.0 * config->resolution) / 1000000, // T0L=1.0us
             },
             .bit1 = {
                 .level0 = 1,
-                .duration0 = (2.0 * config->resolution) / 1000000, // T1H=2.0us
+                .duration0 = (0.9 * config->resolution) / 1000000, // T1H=0.9us
                 .level1 = 0,
-                .duration1 = (0.5 * config->resolution) / 1000000, // T1L=0.5us
+                .duration1 = (0.3 * config->resolution) / 1000000, // T1L=0.3us
             },
             .flags.msb_first = 1 // USC1903 transfer bit order: R7...R0G7...G0B7...B0
         }; 
