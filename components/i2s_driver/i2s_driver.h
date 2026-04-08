@@ -15,6 +15,9 @@
 
 #define I2S_AUDIO_RATE 48000
 
+/*!
+ *  clear dma memory call in cpu task 
+ */
 #define I2S_CLEAR_DMA_MEM(tx_handle, dma_desc_num, dma_frame_num) do {    \
         size_t tot_byte_each_desc = dma_frame_num * 4; \
         uint8_t *data_clear = malloc(tot_byte_each_desc); \
@@ -32,7 +35,7 @@
                 byte_cleared += byte_loadded;   \
         } \
         if(data_clear != NULL) free(data_clear); \
-        printf("clear success\n"); \
+        printf("clear success byte cleared : %d\n", byte_cleared); \
 }while(0)
 
 

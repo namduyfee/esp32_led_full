@@ -18,6 +18,8 @@
 void task_strip_led(void* param);
 void task_audio_i2s(void* param);
 
+static const char *TAG = "MAIN";
+
 struct {
     esp_chip_info_t chip_info;
     rmt_led_t led_rmt;
@@ -34,15 +36,18 @@ void my_init(void)
     printf("CPU cores: %d\n",  SLT.chip_info.cores);
     printf("Revision: %d\n",   SLT.chip_info.revision);
     printf("Features: %lx\n",  SLT.chip_info.features);
+    ESP_LOGI(TAG, "--- Start Init ---");
 
-    //if(rmt_led_init(&SLT.led_rmt) != ESP_OK) esp_restart();
+    if(rmt_led_init(&SLT.led_rmt, WS2812, USC1903) != ESP_OK) esp_restart();
     if(i2s_audio_init(&SLT.audio_i2s) != ESP_OK) esp_restart();
+
+    ESP_LOGI(TAG, "--- End Init ---");
 }
 
 void app_main(void)
 {
     my_init();
-    //xTaskCreate(task_strip_led, "task_strip_led", 1024, NULL, 4, NULL);
+    xTaskCreate(task_strip_led, "task_strip_led", 1024, NULL, 4, NULL);
     xTaskCreate(task_audio_i2s, "task_audio_i2s", 1024, NULL, 4, NULL);
 }
 
@@ -56,12 +61,12 @@ void app_main(void)
  */
 void task_strip_led(void* param)
 {
+    ESP_LOGI(TAG, "task_strip_led running");
     uint8_t* led_strip_pixels = (uint8_t*)malloc(NUM_OF_BYTE);
     
     while(1) 
     {
         memset(led_strip_pixels, 0x22, NUM_OF_BYTE);
-
         ESP_ERROR_CHECK(rmt_transmit(SLT.led_rmt.channel0.handl, SLT.led_rmt.channel0.encoder.handl,led_strip_pixels, NUM_OF_BYTE, &SLT.led_rmt.channel0.trans_conf));
         ESP_ERROR_CHECK(rmt_transmit(SLT.led_rmt.channel1.handl, SLT.led_rmt.channel1.encoder.handl,led_strip_pixels, NUM_OF_BYTE, &SLT.led_rmt.channel1.trans_conf));
         
@@ -83,7 +88,7 @@ void task_strip_led(void* param)
 
 }
 
-#define NUM_SLOT 15000
+#define NUM_SLOT 10000
 /**
  * @brief   handle audio with i2s
  * @note
@@ -92,6 +97,7 @@ void task_strip_led(void* param)
  */
 void task_audio_i2s(void* param)
 {
+    ESP_LOGI(TAG, "task_audio_i2s running");
 
     uint16_t *data = malloc(NUM_SLOT * sizeof(uint16_t));
     uint8_t *data_8bit = (uint8_t*)data;
@@ -106,8 +112,7 @@ void task_audio_i2s(void* param)
                 byte_written += byte_loadded;
             }
         }
-        I2S_CLEAR_DMA_MEM(SLT.audio_i2s.tx_handle, SLT.audio_i2s.chan_cfg.dma_desc_num, SLT.audio_i2s.chan_cfg.dma_frame_num);
-
+        
         vTaskDelay(pdMS_TO_TICKS(1000)); 
     }
 

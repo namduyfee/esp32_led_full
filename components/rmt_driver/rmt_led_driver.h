@@ -20,7 +20,8 @@
 
 
 typedef enum {
-    LED1903 = 0,
+    USC1903 = 0,
+    WS2812,
 } TypeLed;
 
 typedef struct {
@@ -57,6 +58,6 @@ typedef struct {
 
 } rmt_led_t;
 
-esp_err_t rmt_led_init(rmt_led_t* rmt); 
+esp_err_t rmt_led_init(rmt_led_t* rmt, TypeLed type_led_channel0, TypeLed type_led_channel1);
 
 #endif

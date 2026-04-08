@@ -85,19 +85,19 @@ esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rm
     led_encoder->base.reset = rmt_led_strip_encoder_reset;
     led_encoder->state = 0;   // or RMT_ENCODING_RESET
     
-    if(led == LED1903) {
+    if(led == USC1903) {
         rmt_bytes_encoder_config_t bytes_encoder_config = {
             .bit0 = {
                 .level0 = 1,
-                .duration0 = (0.2 * config->resolution) / 1000000, // T0H=200ns
+                .duration0 = (0.5 * config->resolution) / 1000000, // T0H=500ns
                 .level1 = 0,
-                .duration1 = (1.0 * config->resolution) / 1000000, // T0L=1.0us
+                .duration1 = (2.0 * config->resolution) / 1000000, // T0L=2.0us
             },
             .bit1 = {
                 .level0 = 1,
-                .duration0 = (0.9 * config->resolution) / 1000000, // T1H=0.9us
+                .duration0 = (2.0 * config->resolution) / 1000000, // T1H=2.0us
                 .level1 = 0,
-                .duration1 = (0.3 * config->resolution) / 1000000, // T1L=0.3us
+                .duration1 = (0.5 * config->resolution) / 1000000, // T1L=500ns
             },
             .flags.msb_first = 1 // USC1903 transfer bit order: R7...R0G7...G0B7...B0
         }; 
@@ -114,7 +114,35 @@ esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rm
             .duration1 = reset_ticks,
         };
     }
-    ESP_LOGI(TAG, "Create RMT encoder custum");
+    else if(led == WS2812) {
+        rmt_bytes_encoder_config_t bytes_encoder_config = {           
+            .bit0 = {
+                .level0 = 1,
+                .duration0 = (0.3 * config->resolution) / 1000000, // T0H=300ns
+                .level1 = 0,
+                .duration1 = (0.8 * config->resolution) / 1000000, // T0L=800ns
+            },
+            .bit1 = {
+                .level0 = 1,
+                .duration0 = (0.7 * config->resolution) / 1000000, // T1H=700ns
+                .level1 = 0,
+                .duration1 = (0.6 * config->resolution) / 1000000, // T1L=600ns
+            },
+            .flags.msb_first = 1 // WS2812 transfer bit order: G7...G0R7...R0B7...B0
+        }; 
+
+        ESP_GOTO_ON_ERROR(rmt_new_bytes_encoder(&bytes_encoder_config, &led_encoder->bytes_encoder), err, TAG, "create bytes encoder failed");
+        rmt_copy_encoder_config_t copy_encoder_config = {};
+        ESP_GOTO_ON_ERROR(rmt_new_copy_encoder(&copy_encoder_config, &led_encoder->copy_encoder), err, TAG, "create copy encoder failed");
+
+        uint32_t reset_ticks = ((50 / 2) * config->resolution) / 1000000; // reset code duration defaults to 50us
+        led_encoder->reset_code = (rmt_symbol_word_t) {
+            .level0 = 0,
+            .duration0 = reset_ticks,
+            .level1 = 0,
+            .duration1 = reset_ticks,
+        };        
+    }
     *ret_encoder = &led_encoder->base;
     return ESP_OK;
 err:

@@ -5,14 +5,14 @@ static const char *TAG = "RMT_LED_DRIVER";
 
 extern esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rmt_encoder_handle_t *ret_encoder, TypeLed led);
 
-static esp_err_t rmt_led_init_channel0(rmt_led_t* rmt);
-static esp_err_t rmt_led_init_channel1(rmt_led_t* rmt);
+static esp_err_t rmt_led_init_channel0(rmt_led_t* rmt, TypeLed led);
+static esp_err_t rmt_led_init_channel1(rmt_led_t* rmt, TypeLed led);
 
-esp_err_t rmt_led_init(rmt_led_t* rmt)
+esp_err_t rmt_led_init(rmt_led_t* rmt, TypeLed type_led_channel0, TypeLed type_led_channel1)
 {
 
-    if( rmt_led_init_channel0(rmt) != ESP_OK) return ESP_FAIL;
-    if( rmt_led_init_channel1(rmt) != ESP_OK) return ESP_FAIL;
+    if( rmt_led_init_channel0(rmt, type_led_channel0) != ESP_OK) return ESP_FAIL;
+    if( rmt_led_init_channel1(rmt, type_led_channel1) != ESP_OK) return ESP_FAIL;
 
     #if (defined(SOC_RMT_SUPPORT_TX_SYNCHRO) &&  (SOC_RMT_SUPPORT_TX_SYNCHRO == 1))
     {
@@ -29,20 +29,19 @@ esp_err_t rmt_led_init(rmt_led_t* rmt)
         if(ret != ESP_OK) return ESP_FAIL;
     }
     #endif
-
+    ESP_LOGI(TAG, "Init Succes");
     return ESP_OK;
 }
 
-static esp_err_t rmt_led_init_channel0(rmt_led_t* rmt) 
+static esp_err_t rmt_led_init_channel0(rmt_led_t* rmt, TypeLed led) 
 {   
     /**< install encoder channel0 */
     {
-        ESP_LOGI(TAG, "Install led encoder channel0");
         led_strip_encoder_config_t encoder_config = {
             .resolution = RMT_RESOLUTION_HZ,
         };
 
-        esp_err_t ret = rmt_new_led_strip_encoder(&encoder_config, &rmt->channel0.encoder.handl, LED1903);
+        esp_err_t ret = rmt_new_led_strip_encoder(&encoder_config, &rmt->channel0.encoder.handl, led);
         ESP_ERROR_CHECK(ret);
         if(ret != ESP_OK) return ESP_FAIL;
     }
@@ -72,7 +71,6 @@ static esp_err_t rmt_led_init_channel0(rmt_led_t* rmt)
         ESP_ERROR_CHECK(ret);
         if(ret != ESP_OK) return ESP_FAIL;
 
-        ESP_LOGI(TAG, "Enable RMT TX channel0");
         ret = rmt_enable(rmt->channel0.handl);
         ESP_ERROR_CHECK(ret);
         if(ret != ESP_OK) return ESP_FAIL;
@@ -80,7 +78,6 @@ static esp_err_t rmt_led_init_channel0(rmt_led_t* rmt)
 
     /**< transmit config channel0 */
     {
-        ESP_LOGI(TAG, "Start LED rainbow chase channel0");
         rmt_transmit_config_t trans_config = {
             .loop_count = 0, // no transfer loop
         };
@@ -90,16 +87,15 @@ static esp_err_t rmt_led_init_channel0(rmt_led_t* rmt)
     return ESP_OK;
 }
 
-static esp_err_t rmt_led_init_channel1(rmt_led_t* rmt) 
+static esp_err_t rmt_led_init_channel1(rmt_led_t* rmt, TypeLed led) 
 {
     /**< install encoder channel1 */
     {
-        ESP_LOGI(TAG, "Install led encoder channel1");
         led_strip_encoder_config_t encoder_config = {
             .resolution = RMT_RESOLUTION_HZ,
         };
 
-        esp_err_t ret = rmt_new_led_strip_encoder(&encoder_config, &rmt->channel1.encoder.handl, LED1903);
+        esp_err_t ret = rmt_new_led_strip_encoder(&encoder_config, &rmt->channel1.encoder.handl, led);
         ESP_ERROR_CHECK(ret);
         if(ret != ESP_OK) return ESP_FAIL;
     }
@@ -128,7 +124,6 @@ static esp_err_t rmt_led_init_channel1(rmt_led_t* rmt)
         ESP_ERROR_CHECK(ret);
         if(ret != ESP_OK) return ESP_FAIL;
 
-        ESP_LOGI(TAG, "Enable RMT TX channel1");
         ret = rmt_enable(rmt->channel1.handl);
         ESP_ERROR_CHECK(ret);
         if(ret != ESP_OK) return ESP_FAIL;
@@ -136,7 +131,6 @@ static esp_err_t rmt_led_init_channel1(rmt_led_t* rmt)
 
     /**< transmit config channel1 */
     {
-        ESP_LOGI(TAG, "Start LED rainbow chase channel1");
         rmt_transmit_config_t trans_config = {
             .loop_count = 0, // no transfer loop
         };

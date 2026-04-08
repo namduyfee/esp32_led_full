@@ -2,11 +2,15 @@
 #include "i2s_driver.h"
 #include "gpio_driver.h"
 
+static const char *TAG = "I2S_AUDIO_DRIVER";
+
 esp_err_t i2s_audio_init(i2s_audio_t* i2s_audio) 
 {
     esp_err_t ret;
 
     i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER);
+    chan_cfg.auto_clear = true;     // auto clear Auto clear the legacy data in the DMA buffer
+
     ret = i2s_new_channel(&chan_cfg, &i2s_audio->tx_handle, NULL); 
     ESP_ERROR_CHECK(ret);
     if(ret != ESP_OK)   return ESP_FAIL;
@@ -36,8 +40,8 @@ esp_err_t i2s_audio_init(i2s_audio_t* i2s_audio)
     if(ret != ESP_OK)   return ESP_FAIL;
 
     ret = i2s_channel_enable(i2s_audio->tx_handle);
-    ESP_ERROR_CHECK(ret); 
+    ESP_ERROR_CHECK(ret);
     if(ret != ESP_OK)   return ESP_FAIL;
-    
+    ESP_LOGI(TAG, "Init Succes");
     return ESP_OK;
 }
