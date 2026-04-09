@@ -16,13 +16,12 @@
 #include "driver/rmt_encoder.h"
 
 #define RMT_NUM_OF_CHANNEL 2
-#define RMT_CHANNEL0_GPIO_NUM       2
-#define RMT_CHANNEL1_GPIO_NUM       4
 #define RMT_RESOLUTION_HZ 10000000 // 10MHz resolution, 1 tick = 0.1us
 
 
 typedef enum {
-    LED1903 = 0,
+    USC1903 = 0,
+    WS2812,
 } TypeLed;
 
 typedef struct {
@@ -59,6 +58,6 @@ typedef struct {
 
 } rmt_led_t;
 
-esp_err_t rmt_led_init(rmt_led_t* rmt); 
+esp_err_t rmt_led_init(rmt_led_t* rmt, TypeLed type_led_channel0, TypeLed type_led_channel1);
 
 #endif
