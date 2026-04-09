@@ -33,7 +33,6 @@ esp_err_t i2s_audio_init(i2s_audio_t* i2s_audio)
         },
     };
     i2s_audio->std_tx_cfg = std_tx_cfg;
-
     /* Initialize the channel */
     ret = i2s_channel_init_std_mode(i2s_audio->tx_handle, &std_tx_cfg);
     ESP_ERROR_CHECK(ret);

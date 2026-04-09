@@ -51,7 +51,7 @@ void app_main(void)
     xTaskCreate(task_audio_i2s, "task_audio_i2s", 1024, NULL, 4, NULL);
 }
 
-#define NUM_OF_LED 255
+#define NUM_OF_LED 2000
 #define NUM_OF_BYTE (NUM_OF_LED * 3)
 /**
  * @brief   control led
