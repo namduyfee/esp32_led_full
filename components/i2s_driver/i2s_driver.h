@@ -1,6 +1,7 @@
 #ifndef I2S_DRIVER_H
 #define I2S_DRIVER_H
 
+
 #include <string.h>
 #include <math.h>
 #include "freertos/FreeRTOS.h"
@@ -12,9 +13,24 @@
 #include "driver/i2s_std.h"
 #include "driver/i2s_common.h"
 #include "driver/i2s_types.h"
+#include "driver/i2s_pdm.h"
 
+
+typedef struct {
+
+    i2s_chan_handle_t tx_handle;
+
+    i2s_chan_config_t chan_cfg; 
+    #if defined(I2S_PCM)
+    i2s_std_config_t std_tx_cfg;
+    #elif defined(I2S_PDM)
+    i2s_pdm_tx_config_t pdm_tx_cfg;
+    #endif
+
+} i2s_audio_t;
+
+#if defined(I2S_PCM)
 #define I2S_AUDIO_RATE 48000
-
 /*!
  *  clear dma memory call in cpu task 
  */
@@ -39,14 +55,14 @@
 }while(0)
 
 
-typedef struct {
+esp_err_t i2s_init_pcm_tx(i2s_audio_t* i2s_audio); 
 
-    i2s_chan_handle_t tx_handle;
+#elif defined(I2S_PDM)
+#define I2S_PDM_TX_FREQ_HZ 48000
 
-    i2s_chan_config_t chan_cfg; 
 
-    i2s_std_config_t std_tx_cfg;
+esp_err_t i2s_init_pdm_tx(i2s_audio_t* i2s_audio);
+#endif
 
-} i2s_audio_t;
-esp_err_t i2s_audio_init(i2s_audio_t* i2s_audio);
+
 #endif

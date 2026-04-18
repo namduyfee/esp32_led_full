@@ -842,8 +842,7 @@ CONFIG_DAC_DMA_AUTO_16BIT_ALIGN=y
 #
 # ESP-Driver:I2S Configurations
 #
-# default:
-# CONFIG_I2S_ISR_IRAM_SAFE is not set
+CONFIG_I2S_ISR_IRAM_SAFE=y
 # default:
 # CONFIG_I2S_CTRL_FUNC_IN_IRAM is not set
 # default:

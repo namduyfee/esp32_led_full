@@ -5,7 +5,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_chip_info.h"
-#include "esp_flash.h"
 #include "esp_system.h"
 #include "esp_check.h"
 #include "esp_log.h"
@@ -39,7 +38,12 @@ void my_init(void)
     ESP_LOGI(TAG, "--- Start Init ---");
 
     if(rmt_led_init(&SLT.led_rmt, WS2812, USC1903) != ESP_OK) esp_restart();
-    if(i2s_audio_init(&SLT.audio_i2s) != ESP_OK) esp_restart();
+    #if defined(I2S_PCM)
+    if(i2s_init_pcm_tx(&SLT.audio_i2s) != ESP_OK) esp_restart();
+    #elif   defined(I2S_PDM)
+    if(i2s_init_pdm_tx(&SLT.audio_i2s) != ESP_OK) esp_restart();
+    #endif
+
 
     ESP_LOGI(TAG, "--- End Init ---");
 }
@@ -51,7 +55,7 @@ void app_main(void)
     xTaskCreate(task_audio_i2s, "task_audio_i2s", 1024, NULL, 4, NULL);
 }
 
-#define NUM_OF_LED 2000
+#define NUM_OF_LED 500
 #define NUM_OF_BYTE (NUM_OF_LED * 3)
 /**
  * @brief   control led
@@ -88,13 +92,45 @@ void task_strip_led(void* param)
 
 }
 
-#define NUM_SLOT 10000
+#define NUM_SLOT 2000
+
 /**
  * @brief   handle audio with i2s
  * @note
  * 
  * 
  */
+#if defined(I2S_PDM)
+void task_audio_i2s(void* param)
+{
+    ESP_LOGI(TAG, "task_audio_i2s running");
+
+    int16_t *data = malloc(NUM_SLOT * sizeof(int16_t));
+
+    for(int j = 0; j < NUM_SLOT; j++) {
+        if(j % 2 == 0)
+            data[j] = 32767;
+        else
+            data[j] = -32768;
+    }
+
+    while(1)
+    {
+        size_t byte_load = 0;
+        size_t byte_written = 0;
+        while(byte_written < NUM_SLOT * 2) {
+            if(i2s_channel_write(SLT.audio_i2s.tx_handle, data, 
+            NUM_SLOT * sizeof(int16_t), &byte_load, portMAX_DELAY) == ESP_OK) {
+                byte_written += byte_load;
+            }
+            printf("%d %d\n", data[0], byte_load);
+        }
+        vTaskDelay(pdMS_TO_TICKS(500)); 
+    }
+
+}
+
+#elif defined(I2S_PCM)
 void task_audio_i2s(void* param)
 {
     ESP_LOGI(TAG, "task_audio_i2s running");
@@ -117,4 +153,5 @@ void task_audio_i2s(void* param)
     }
 
 }
+#endif
 

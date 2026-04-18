@@ -1,3 +1,5 @@
 idf_component_register(SRCS "gpio_driver.c"
-                       REQUIRES esp_driver_gpio
+                        REQUIRES 
+                            main
+                            esp_driver_gpio
                        INCLUDE_DIRS ".")
