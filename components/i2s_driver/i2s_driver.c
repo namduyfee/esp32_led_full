@@ -19,7 +19,7 @@ esp_err_t i2s_init_pcm_tx(i2s_audio_t* i2s_audio)
 
     i2s_std_config_t std_tx_cfg = {
         .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(I2S_AUDIO_RATE),
-        .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO),
+        .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO),
         .gpio_cfg = {
             .mclk = I2S_MCLK_PIN,
             .bclk = I2S_BCLK_PIN,
@@ -33,12 +33,12 @@ esp_err_t i2s_init_pcm_tx(i2s_audio_t* i2s_audio)
             },
         },
     };
-    i2s_audio->std_tx_cfg = std_tx_cfg;
     /* Initialize the channel */
     ret = i2s_channel_init_std_mode(i2s_audio->tx_handle, &std_tx_cfg);
+    i2s_audio->std_tx_cfg = std_tx_cfg;
     ESP_ERROR_CHECK(ret);
     if(ret != ESP_OK)   return ESP_FAIL;
-
+    
     ret = i2s_channel_enable(i2s_audio->tx_handle);
     ESP_ERROR_CHECK(ret);
     if(ret != ESP_OK)   return ESP_FAIL;
@@ -71,13 +71,12 @@ esp_err_t i2s_init_pdm_tx(i2s_audio_t* i2s_audio)
             },
         },
     };
-    //pdm_tx_cfg.slot_cfg.slot_mask = I2S_PDM_SLOT_LEFT;
+   
+    ret = i2s_channel_init_pdm_tx_mode(i2s_audio->tx_handle, &pdm_tx_cfg);
     i2s_audio->pdm_tx_cfg = pdm_tx_cfg;
-
-    ret = i2s_channel_init_pdm_tx_mode(i2s_audio->tx_handle, &i2s_audio->pdm_tx_cfg);
     ESP_ERROR_CHECK(ret);
     if(ret != ESP_OK)   return ESP_FAIL;
-
+    
     ret = i2s_channel_enable(i2s_audio->tx_handle);
     ESP_ERROR_CHECK(ret);
     if(ret != ESP_OK)   return ESP_FAIL;
