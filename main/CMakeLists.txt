@@ -4,4 +4,6 @@ idf_component_register(SRCS "main.c"
                             i2s_driver 
                             dac_driver 
                             gpio_driver
-                       INCLUDE_DIRS ".")
+                       INCLUDE_DIRS "."
+                       EMBED_FILES "../data/hello.wav"
+                       )

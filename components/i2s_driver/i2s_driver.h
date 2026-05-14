@@ -58,7 +58,7 @@ typedef struct {
 esp_err_t i2s_init_pcm_tx(i2s_audio_t* i2s_audio); 
 
 #elif defined(I2S_PDM)
-#define I2S_PDM_TX_FREQ_HZ 48000
+#define I2S_PDM_TX_FREQ_HZ 16000
 
 
 esp_err_t i2s_init_pdm_tx(i2s_audio_t* i2s_audio);
