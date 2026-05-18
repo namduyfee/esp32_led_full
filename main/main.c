@@ -14,8 +14,9 @@
 #include "i2s_driver.h"
 
 
-void task_strip_led(void* param);
-void task_audio_i2s(void* param);
+void task_strip_led(void *param);
+void task_take_audio_data(void *param);
+void task_make_audio_signal(void *param);
 
 static const char *TAG = "MAIN";
 
@@ -26,6 +27,8 @@ struct {
 
 } SLT;
 
+
+QueueHandle_t xAudioBufferList;
 
 void my_init(void)
 {
@@ -44,15 +47,21 @@ void my_init(void)
     if(i2s_init_pdm_tx(&SLT.audio_i2s) != ESP_OK) esp_restart();
     #endif
 
-    
     ESP_LOGI(TAG, "--- End Init ---");
 }
 
 void app_main(void)
 {
+    /** init system */
     my_init();
+
+    /** creat Queue */
+    xAudioBufferList = xQueueCreate(10, sizeof(audio_buf_t));
+
+    /** creat Task */
     xTaskCreate(task_strip_led, "task_strip_led", 1024, NULL, 4, NULL);
-    xTaskCreate(task_audio_i2s, "task_audio_i2s", 1024, NULL, 4, NULL);
+    xTaskCreate(task_make_audio_signal, "task_make_audio_signal", 1024, NULL, 4, NULL);
+    xTaskCreate(task_take_audio_data, "task_take_audio_data", 1024, NULL, 4, NULL);
 }
 
 #define NUM_OF_LED 1024
@@ -110,7 +119,41 @@ void task_strip_led(void* param)
 
 }
 
-#define NUM_SLOT 50
+#define MAX_BYTE_OF_DATA 1024
+extern const uint8_t intro_wav_start[] asm("_binary_intr_wav_start");
+extern const uint8_t intro_wav_end[]   asm("_binary_intr_wav_end");
+
+/**
+ * @brief   take audio data and send to task make audio signal
+ */
+void task_take_audio_data(void *param)
+{
+    audio_buf_t buf_tem;
+
+    const uint8_t *wav_ptr = intro_wav_start;
+    const uint8_t *pcm = wav_ptr + 44;
+    size_t wav_size = intro_wav_end - intro_wav_start;
+    size_t pcm_size = wav_size - 44;
+    int size_tem = pcm_size;
+
+    while(1) {
+        while(size_tem > 0) {
+            size_t tot_byte = size_tem > MAX_BYTE_OF_DATA ? MAX_BYTE_OF_DATA : size_tem;
+            buf_tem.data = malloc(tot_byte);
+
+            if(buf_tem.data != NULL) {
+                buf_tem.tot_byte = tot_byte;
+                memcpy(buf_tem.data, pcm + pcm_size - size_tem, tot_byte);
+                if(xQueueSend(xAudioBufferList, &buf_tem, portMAX_DELAY) == pdTRUE) {
+                    size_tem -= tot_byte;
+                }
+            }
+            //vTaskDelay(pdMS_TO_TICKS(1));
+        }
+        size_tem = pcm_size;
+        vTaskDelay(pdMS_TO_TICKS(2000));
+    }
+}
 
 /**
  * @brief   handle audio with i2s
@@ -123,187 +166,71 @@ void task_strip_led(void* param)
  * 
  */
 #if defined(I2S_PDM)
-
-//#define TEST_SIN
-#if defined(TEST_SIN)
-#include "math.h"
-#define SAMPLES_PER_CYCLE 100  // Số mẫu trong 1 chu kỳ (48kHz / 1kHz)
-#define AMPLITUDE 32767
-
-int16_t sin_wave[SAMPLES_PER_CYCLE];
-void generate_sin_wave() {
-    for (int i = 0; i < SAMPLES_PER_CYCLE; i++) {
-        // Tính giá trị sin từ -1.0 đến 1.0, sau đó nhân với biên độ
-        sin_wave[i] = (int16_t)(AMPLITUDE * sin(2 * M_PI * i / SAMPLES_PER_CYCLE));
-    }
-}
-#else
-
-extern const uint8_t hello_wav_start[] asm("_binary_hello_wav_start");
-extern const uint8_t hello_wav_end[]   asm("_binary_hello_wav_end");
-
-
-#endif
-
-void task_audio_i2s(void* param)
+void task_make_audio_signal(void *param)
 {
+    ESP_LOGI(TAG, "task_audio_i2s run");
 
-    ESP_LOGI(TAG, "task_audio_i2s running");
-    
-    #if defined(TEST_SIN)
-    generate_sin_wave();
-
-    uint8_t pulse_num =15; 
-
-    int16_t *data = malloc(SAMPLES_PER_CYCLE * pulse_num * sizeof(int16_t));
-    int8_t* data_i8 = (int8_t*)data;
-
-    for(int i = 0; i < SAMPLES_PER_CYCLE * pulse_num; i++) {
-        data[i] = sin_wave[i % SAMPLES_PER_CYCLE];
-    }
-    for(int i = 0; i < SAMPLES_PER_CYCLE * pulse_num; i++) {
-        if(i % 2 == 0) {
-            int16_t tem = data[i];
-            data[i] = data[i + 1];
-            data[i + 1] = tem;
-        }
-    }
-    for(int i = 0; i < SAMPLES_PER_CYCLE * pulse_num; i++) 
-        printf("%d ", data[i]);
-    printf("\n");
-    while(1)
-    {
-        size_t byte_load = 0;
-        size_t byte_written = 0;
-        while(byte_written < SAMPLES_PER_CYCLE * pulse_num * sizeof(int16_t)) {
-            if(i2s_channel_write(SLT.audio_i2s.tx_handle, data_i8 + byte_written,
-            SAMPLES_PER_CYCLE * pulse_num * sizeof(int16_t) - byte_written, &byte_load, portMAX_DELAY) == ESP_OK) {
-                byte_written += byte_load;
-            }
-            printf("%d %d\n", data[0], byte_load);
-        }
-        printf("written\n");
-        vTaskDelay(pdMS_TO_TICKS(100)); 
-    }
-    #else
-    const uint8_t *wav_ptr = hello_wav_start;
-
-    size_t wav_size = hello_wav_end - hello_wav_start;
-
-    const uint8_t *pcm = wav_ptr + 44;
-    size_t pcm_size = wav_size - 44;
-
-    int size_tem = pcm_size;
-
-    // int16_t* sound[6];
-    // int index = 0;
-
-    // do {
-
-    //     int size_allocate = size_tem > 50000 ? 50000 : size_tem;
-
-    //     sound[index] = malloc(size_allocate); 
-    //     memcpy(sound[index], &wav_ptr[pcm_size - size_tem], size_allocate);
-
-    //     size_tem -= size_allocate;
-    //     index++;
-
-    // } while(size_tem > 0);
-
-    // printf("size pcm : %d\n", pcm_size);
-    // for(int i = 0;i < index; i++) {
-
-    // }
-    // for(int i = 0; i < pcm_size / sizeof(int16_t); i++) {
-    //     if(i % 2 == 0) {
-    //         int16_t tem = hello_pcm[i];
-    //         hello_pcm[i] = hello_pcm[i + 1];
-    //         hello_pcm[i + 1] = tem;
-    //     }
-    // }
-
-    printf("\n");
-
-    // for(int i = 0; i < sizeof(hello_pcm) / sizeof(int16_t); i++) {
-    //     if(i % 2 == 0) {
-    //         int16_t tem = hello_pcm[i];
-    //         hello_pcm[i] = hello_pcm[i + 1];
-    //         hello_pcm[i + 1] = tem;
-    //     }
-    // } 
-    // for(int i = 0; i < sizeof(hello_pcm) / sizeof(int16_t); i++) 
-    //     printf("%d ", hello_pcm[i]);
-    // printf("\n");
-    // printf("totbyte : %d ; totelement : %d\n", sizeof(hello_pcm), sizeof(hello_pcm) / sizeof(int16_t));
-
-    uint8_t* temp = malloc(1024);
+    audio_buf_t buf_tmp;
 
     while(1)
     {
-        size_t offset = 0;
+        if(xQueueReceive(xAudioBufferList, &buf_tmp, portMAX_DELAY) == pdTRUE) {
 
-        while (offset < pcm_size)
-        {
-            size_t remain = pcm_size - offset;
-
-            size_t send =
-                remain > sizeof(temp)
-                ? sizeof(temp)
-                : remain;
-
-            memcpy(temp, pcm + offset, send);
-
-            int16_t *s = (int16_t *)temp;
-
-            size_t sample_count = send / 2;
-
-            for (size_t i = 0; i + 1 < sample_count; i += 2)
+            size_t offset = 0;
+        
+            while (offset < buf_tmp.tot_byte)
             {
-                int16_t t = s[i];
+                size_t remain = buf_tmp.tot_byte - offset;
 
-                s[i] = s[i + 1];
+                size_t send = remain > buf_tmp.tot_byte ? buf_tmp.tot_byte : remain;
 
-                s[i + 1] = t;
-            }
+                int16_t *s = (int16_t*)((uint8_t*)(buf_tmp.data) + offset);
 
-            size_t written;
+                size_t sample_count = send / 2;
 
-            i2s_channel_write(SLT.audio_i2s.tx_handle, temp,
-            send, &written, portMAX_DELAY);
+                for (size_t i = 0; i + 1 < sample_count; i += 2)
+                {
+                    int16_t t = s[i];
 
-            offset += send;
-        }        
-        // size_t byte_load = 0;
-        // size_t byte_written = 0;
-        // int8_t* data_i8 = (int8_t*)hello_pcm;
-        // while(byte_written < sizeof(hello_pcm)) {
-        //     if(i2s_channel_write(SLT.audio_i2s.tx_handle, data_i8 + byte_written,
-        //     pcm_size - byte_written, &byte_load, portMAX_DELAY) == ESP_OK) {
-        //         byte_written += byte_load;
-        //     }
-        //     printf("%d\n", byte_load);
-        // }     
-        vTaskDelay(pdMS_TO_TICKS(2000)); 
+                    s[i] = s[i + 1];
+
+                    s[i + 1] = t;
+                }
+
+                size_t written;
+
+                i2s_channel_write(SLT.audio_i2s.tx_handle, (uint8_t*)(buf_tmp.data) + offset,
+                send, &written, portMAX_DELAY);
+
+                offset += written;
+            }    
+            
+            if(buf_tmp.data != NULL)
+                free(buf_tmp.data);  
+        }
+        //vTaskDelay(pdMS_TO_TICKS(1));
     }
-    #endif
 
 }
 #elif defined(I2S_PCM)
+
+#define NUM_SLOT_TEST 50
+
 void task_audio_i2s(void* param)
 {
-    ESP_LOGI(TAG, "task_audio_i2s running");
+    ESP_LOGI(TAG, "task_audio_i2s run");
 
-    uint16_t *data = malloc(NUM_SLOT * sizeof(uint16_t));
+    uint16_t *data = malloc(NUM_SLOT_TEST * sizeof(uint16_t));
     uint8_t *data_8bit = (uint8_t*)data;
 
-    for(int j = 0; j < NUM_SLOT; j++) data[j] = j;
-    for(int j = 0; j < NUM_SLOT; j++)
+    for(int j = 0; j < NUM_SLOT_TEST; j++) data[j] = j;
+    for(int j = 0; j < NUM_SLOT_TEST; j++)
         if(j % 2 == 0) {
             uint16_t tem = data[j]; 
             data[j] = data[j + 1]; 
             data[j + 1] = tem;
         }
-    for(int i = 0; i < NUM_SLOT; i++) 
+    for(int i = 0; i < NUM_SLOT_TEST; i++) 
         printf("%d ", data[i]);
     printf("\n");
         
@@ -312,9 +239,9 @@ void task_audio_i2s(void* param)
         size_t byte_written = 0; 
         size_t byte_loadded = 0;
 
-        while(byte_written < NUM_SLOT * sizeof(uint16_t)) {
+        while(byte_written < NUM_SLOT_TEST * sizeof(uint16_t)) {
             esp_err_t ret = i2s_channel_write(SLT.audio_i2s.tx_handle, 
-                data_8bit + byte_written, NUM_SLOT * sizeof(uint16_t) - byte_written,
+                data_8bit + byte_written, NUM_SLOT_TEST * sizeof(uint16_t) - byte_written,
                  &byte_loadded, portMAX_DELAY);
             if(ret == ESP_OK) {
                 byte_written += byte_loadded;
