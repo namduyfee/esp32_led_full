@@ -5,5 +5,5 @@ idf_component_register(SRCS "main.c"
                             dac_driver 
                             gpio_driver
                        INCLUDE_DIRS "."
-                       EMBED_FILES "../data/intr.wav"
+                       EMBED_FILES "../data/pp2.wav"
                        )

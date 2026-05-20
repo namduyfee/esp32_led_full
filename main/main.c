@@ -13,9 +13,11 @@
 #include "rmt_led_driver.h"
 #include "i2s_driver.h"
 
+#include "esp_clk_tree.h" // Thư viện cây xung nhịp mới
 
-void task_strip_led(void *param);
-void task_take_audio_data(void *param);
+void task_test_eff_led(void *param);
+void task_make_led_signal(void *param);
+void task_test_audio(void *param);
 void task_make_audio_signal(void *param);
 
 static const char *TAG = "MAIN";
@@ -29,15 +31,23 @@ struct {
 
 
 QueueHandle_t xAudioBufferList;
+QueueHandle_t xLedRequestList;
 
 void my_init(void)
 {
+    /** check chip infor and frequency APB */
+    uint32_t apb_freq_hz = 0;
+    esp_clk_tree_src_get_freq_hz(SOC_MOD_CLK_APB, ESP_CLK_TREE_SRC_FREQ_PRECISION_EXACT, &apb_freq_hz);
+    printf("APB Clock tu Clock Tree: %lu Hz\n", apb_freq_hz);
+
     esp_chip_info(&SLT.chip_info);
 
     printf("Chip model: %d\n", SLT.chip_info.model);
     printf("CPU cores: %d\n",  SLT.chip_info.cores);
     printf("Revision: %d\n",   SLT.chip_info.revision);
     printf("Features: %lx\n",  SLT.chip_info.features);
+
+    /** start init */
     ESP_LOGI(TAG, "--- Start Init ---");
     
     if(rmt_led_init(&SLT.led_rmt, WS2812, USC1903) != ESP_OK) esp_restart();
@@ -57,76 +67,129 @@ void app_main(void)
 
     /** creat Queue */
     xAudioBufferList = xQueueCreate(10, sizeof(audio_buf_t));
+    xLedRequestList =  xQueueCreate(10, sizeof(request_strip_led_t)); 
 
     /** creat Task */
-    xTaskCreate(task_strip_led, "task_strip_led", 1024, NULL, 4, NULL);
+    xTaskCreate(task_test_eff_led, "task_test_eff_led", 1024, NULL, 4, NULL);
+    xTaskCreate(task_make_led_signal, "task_make_led_signal", 1024, NULL, 4, NULL);
+
+    xTaskCreate(task_test_audio, "task_test_audio", 1024, NULL, 4, NULL);
     xTaskCreate(task_make_audio_signal, "task_make_audio_signal", 1024, NULL, 4, NULL);
-    xTaskCreate(task_take_audio_data, "task_take_audio_data", 1024, NULL, 4, NULL);
+    
 }
 
-#define NUM_OF_LED 1024
+#define NUM_OF_LED 50
 #define NUM_OF_BYTE (NUM_OF_LED * 3)
 /**
- * @brief   control led
+ * @brief test effect led
+ */
+void task_test_eff_led(void *param) 
+{
+    
+    uint8_t i = 0; 
+    while(1) 
+    {
+        request_strip_led_t request_tmp = {.channel0 = {.data = NULL, .tot_byte = 0}, .channel1 = {.data = NULL, .tot_byte = 0}};
+
+        uint8_t* channel0_pixels = (uint8_t*)malloc(NUM_OF_BYTE);
+        uint8_t* channel1_pixels = (uint8_t*)malloc(NUM_OF_BYTE);
+        if(i % 2 == 0) {
+            memset(channel0_pixels, 0x00, NUM_OF_BYTE);
+            memset(channel1_pixels, 0x00, NUM_OF_BYTE);
+        }
+        else {
+            memset(channel0_pixels, 0x22, NUM_OF_BYTE);
+            memset(channel1_pixels, 0x22, NUM_OF_BYTE);
+        }
+
+        request_tmp.channel0.data = channel0_pixels; request_tmp.channel0.tot_byte = NUM_OF_BYTE;
+        request_tmp.channel1.data = channel1_pixels; request_tmp.channel1.tot_byte = NUM_OF_BYTE;
+
+        xQueueSend(xLedRequestList, &request_tmp, portMAX_DELAY);
+
+        i = (i + 1) % 2; 
+        vTaskDelay(pdMS_TO_TICKS(500));   
+    }
+}
+
+/**
+ * @brief   make signal rmt to control led
+ * @details
+ *  - task receive queue 
  * @note
  *  - rmt not copy value of payload, rmt save pointer to payload. So don't update value payload before transmited -> use rmt_tx_wait_all_done.
- *  - heap memory is used to store effect for 2 channel 
  */
-void task_strip_led(void* param)
+void task_make_led_signal(void *param)
 {
-    ESP_LOGI(TAG, "task_strip_led running");
-
-    uint32_t free_heap = esp_get_free_heap_size();
-    printf("Free heap size before: %ld bytes\n", free_heap);
-    
-    uint8_t* channel0_pixels = (uint8_t*)malloc(NUM_OF_BYTE);
-    uint8_t* channel1_pixels = (uint8_t*)malloc(NUM_OF_BYTE);
-
-    free_heap = esp_get_free_heap_size();
-    printf("Free heap size after: %ld bytes\n", free_heap);
+    ESP_LOGI(TAG, "task_strip_led run");
 
     while(1) 
     {
+        request_strip_led_t req_tmp = {.channel0 = {.data = NULL, .tot_byte = 0}, .channel1 = {.data = NULL, .tot_byte = 0}};
+        bool channel0_requested = false; bool channel1_requested = false;
 
-        memset(channel0_pixels, 0x22, NUM_OF_BYTE);
-        memset(channel1_pixels, 0x22, NUM_OF_BYTE);
 
-        ESP_ERROR_CHECK(rmt_transmit(SLT.led_rmt.channel0.handl, SLT.led_rmt.channel0.encoder.handl,channel0_pixels, 
-            NUM_OF_BYTE, &SLT.led_rmt.channel0.trans_conf));
+        if(xQueueReceive(xLedRequestList, &req_tmp, portMAX_DELAY) == pdTRUE) {
 
-        ESP_ERROR_CHECK(rmt_transmit(SLT.led_rmt.channel1.handl, SLT.led_rmt.channel1.encoder.handl,channel1_pixels, 
-            NUM_OF_BYTE, &SLT.led_rmt.channel1.trans_conf));
-        
-        ESP_ERROR_CHECK(rmt_tx_wait_all_done(SLT.led_rmt.channel0.handl, portMAX_DELAY));
-        ESP_ERROR_CHECK(rmt_tx_wait_all_done(SLT.led_rmt.channel1.handl, portMAX_DELAY));
-        
-        vTaskDelay(pdMS_TO_TICKS(500));
+            /** transmit channel0 if channel0 have new effect request */
+            if(req_tmp.channel0.data != NULL) {
 
-        memset(channel0_pixels, 0x00, NUM_OF_BYTE);
-        memset(channel1_pixels, 0x00, NUM_OF_BYTE);
+                esp_err_t ret = rmt_transmit(SLT.led_rmt.channel0.handl, 
+                    SLT.led_rmt.channel0.encoder.handl, 
+                    req_tmp.channel0.data, 
+                    req_tmp.channel0.tot_byte, &SLT.led_rmt.channel0.trans_conf); 
+                ESP_ERROR_CHECK(ret);
+                channel0_requested = true;
 
-        ESP_ERROR_CHECK(rmt_transmit(SLT.led_rmt.channel0.handl, SLT.led_rmt.channel0.encoder.handl,channel0_pixels, 
-            NUM_OF_BYTE, &SLT.led_rmt.channel0.trans_conf));
+            }
 
-        ESP_ERROR_CHECK(rmt_transmit(SLT.led_rmt.channel1.handl, SLT.led_rmt.channel1.encoder.handl,channel1_pixels, 
-            NUM_OF_BYTE, &SLT.led_rmt.channel1.trans_conf));
-        
-        ESP_ERROR_CHECK(rmt_tx_wait_all_done(SLT.led_rmt.channel0.handl, portMAX_DELAY));
-        ESP_ERROR_CHECK(rmt_tx_wait_all_done(SLT.led_rmt.channel1.handl, portMAX_DELAY));
-        
-        vTaskDelay(pdMS_TO_TICKS(500));        
+            /** transmit channel1 if channel1 have new effect request */
+            if(req_tmp.channel1.data != NULL) {
+
+                esp_err_t ret = rmt_transmit(SLT.led_rmt.channel1.handl, 
+                    SLT.led_rmt.channel1.encoder.handl, 
+                    req_tmp.channel1.data, 
+                    req_tmp.channel1.tot_byte, &SLT.led_rmt.channel1.trans_conf); 
+                ESP_ERROR_CHECK(ret);
+                channel1_requested = true;
+
+            }
+
+            /** wait channel0 sent and free heap memory */
+            if(channel0_requested == true) {
+                ESP_ERROR_CHECK(rmt_tx_wait_all_done(SLT.led_rmt.channel0.handl, portMAX_DELAY));
+                if(req_tmp.channel0.data != NULL) {
+                    free(req_tmp.channel0.data); 
+                    req_tmp.channel0.data = NULL;
+                }
+                channel0_requested = false;
+            }
+
+            /** wait channel1 sent and free heap memory */
+            if(channel1_requested == true) {
+                ESP_ERROR_CHECK(rmt_tx_wait_all_done(SLT.led_rmt.channel1.handl, portMAX_DELAY));
+                if(req_tmp.channel1.data != NULL) {
+                    free(req_tmp.channel1.data); 
+                    req_tmp.channel1.data = NULL;
+                }
+                channel1_requested = false;
+            }            
+
+        }
+        vTaskDelay(pdMS_TO_TICKS(1));        
     }
-
 }
 
-#define MAX_BYTE_OF_DATA 1024
-extern const uint8_t intro_wav_start[] asm("_binary_intr_wav_start");
-extern const uint8_t intro_wav_end[]   asm("_binary_intr_wav_end");
+#define MAX_SAMPLE 1024
+#define BYTE_OF_EACH_SAMP 2
+#define MAX_BYTE_OF_DATA (MAX_SAMPLE * BYTE_OF_EACH_SAMP)
+extern const uint8_t intro_wav_start[] asm("_binary_pp2_wav_start");
+extern const uint8_t intro_wav_end[]   asm("_binary_pp2_wav_end");
 
 /**
  * @brief   take audio data and send to task make audio signal
  */
-void task_take_audio_data(void *param)
+void task_test_audio(void *param)
 {
     audio_buf_t buf_tem;
 
@@ -136,6 +199,8 @@ void task_take_audio_data(void *param)
     size_t pcm_size = wav_size - 44;
     int size_tem = pcm_size;
 
+    bool sent = false;
+    int16_t last_sample_value = 0;
     while(1) {
         while(size_tem > 0) {
             size_t tot_byte = size_tem > MAX_BYTE_OF_DATA ? MAX_BYTE_OF_DATA : size_tem;
@@ -146,11 +211,27 @@ void task_take_audio_data(void *param)
                 memcpy(buf_tem.data, pcm + pcm_size - size_tem, tot_byte);
                 if(xQueueSend(xAudioBufferList, &buf_tem, portMAX_DELAY) == pdTRUE) {
                     size_tem -= tot_byte;
+                    memcpy(&last_sample_value, (uint8_t*)buf_tem.data + tot_byte - 2, 2); 
                 }
             }
+            sent = true;
             //vTaskDelay(pdMS_TO_TICKS(1));
         }
-        size_tem = pcm_size;
+        if(sent == true) {
+            int16_t* fade_buf = malloc(64 * sizeof(int16_t));
+            for (int i = 0; i < 64; i++) {
+                fade_buf[i] = (int16_t)(last_sample_value * (64 - i) / 64);
+                printf("%d ", fade_buf[i]); 
+            }
+            
+            buf_tem.data = fade_buf;
+            buf_tem.tot_byte = 64 * sizeof(int16_t);
+            xQueueSend(xAudioBufferList, &buf_tem, portMAX_DELAY);
+            printf("last sample : %d\n", last_sample_value); 
+            size_tem = pcm_size;
+            sent = false;
+        }
+        
         vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }
@@ -170,43 +251,46 @@ void task_make_audio_signal(void *param)
 {
     ESP_LOGI(TAG, "task_audio_i2s run");
 
-    audio_buf_t buf_tmp;
-
     while(1)
     {
+        audio_buf_t buf_tmp = {.data = NULL, .tot_byte = 0};
+
         if(xQueueReceive(xAudioBufferList, &buf_tmp, portMAX_DELAY) == pdTRUE) {
 
-            size_t offset = 0;
-        
-            while (offset < buf_tmp.tot_byte)
-            {
-                size_t remain = buf_tmp.tot_byte - offset;
+            if(buf_tmp.data != NULL) {
+                size_t offset = 0;
 
-                size_t send = remain > buf_tmp.tot_byte ? buf_tmp.tot_byte : remain;
-
-                int16_t *s = (int16_t*)((uint8_t*)(buf_tmp.data) + offset);
-
-                size_t sample_count = send / 2;
-
-                for (size_t i = 0; i + 1 < sample_count; i += 2)
+                while (offset < buf_tmp.tot_byte)
                 {
-                    int16_t t = s[i];
+                    size_t remain = buf_tmp.tot_byte - offset;
 
-                    s[i] = s[i + 1];
+                    size_t send = remain > buf_tmp.tot_byte ? buf_tmp.tot_byte : remain;
 
-                    s[i + 1] = t;
+                    int16_t *s = (int16_t*)((uint8_t*)(buf_tmp.data) + offset);
+
+                    size_t sample_count = send / 2;
+
+                    for (size_t i = 0; i + 1 < sample_count; i += 2)
+                    {
+                        int16_t t = s[i];
+
+                        s[i] = s[i + 1];
+
+                        s[i + 1] = t;
+                    }
+
+                    size_t written;
+
+                    i2s_channel_write(SLT.audio_i2s.tx_handle, (uint8_t*)(buf_tmp.data) + offset,
+                    send, &written, portMAX_DELAY);
+
+                    offset += written;
                 }
 
-                size_t written;
-
-                i2s_channel_write(SLT.audio_i2s.tx_handle, (uint8_t*)(buf_tmp.data) + offset,
-                send, &written, portMAX_DELAY);
-
-                offset += written;
-            }    
-            
-            if(buf_tmp.data != NULL)
-                free(buf_tmp.data);  
+                free(buf_tmp.data); 
+                buf_tmp.data = NULL; 
+            }
+                
         }
         //vTaskDelay(pdMS_TO_TICKS(1));
     }

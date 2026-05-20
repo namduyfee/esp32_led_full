@@ -16,7 +16,7 @@
 #include "main.h"
 
 #define I2S_PCM_TX_FREQ_HZ 48000
-#define I2S_PDM_TX_FREQ_HZ 16000
+#define I2S_PDM_TX_FREQ_HZ 16000    // freq = 16khz is performs best on the circuit
 
 typedef struct {
 

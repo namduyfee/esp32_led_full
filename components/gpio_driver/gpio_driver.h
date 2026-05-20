@@ -4,8 +4,8 @@
 #include "driver/gpio.h"
 
 /** define PIN RMT LED */
-#define RMT_CHANNEL0_GPIO_NUM   GPIO_NUM_4
-#define RMT_CHANNEL1_GPIO_NUM   GPIO_NUM_12
+#define RMT_CHANNEL0_GPIO_NUM   GPIO_NUM_12
+#define RMT_CHANNEL1_GPIO_NUM   GPIO_NUM_14
 
 /** define PIN I2S */
 
