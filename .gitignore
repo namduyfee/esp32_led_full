@@ -1,34 +1,367 @@
-# Build output
-/build/
-*.elf
-*.bin
-*.map
-*.hex
-*.img
+# OS cruft
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+__MACOSX/
+# Linux editors
+*~
 
-# SDK config
-sdkconfig
+# Git merge backups
+*.orig
 
-# CMake cache & intermediate files
-CMakeCache.txt
-CMakeFiles/
-Makefile
-*.cmake
-compile_commands.json
-
-# IDF tools & python env
-.esp-idf/
-.venv/
-pip-selfcheck.json
-
-# Editor/IDE
-.vscode/
-.idea/
+# Logs / temp
+*.log
+*.tmp
+*.bak
 *.swp
 *.swo
-*.sublime-project
-*.sublime-workspace
-*.DS_Store
 
-# Logs
+# IDEs
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.iml
+
+# .NET / Visual Studio
+[Bb]in/
+[Oo]bj/
+[Dd]ebug*/
+artifacts/
+TestResult*/
+*.nupkg
+*.snupkg
+*.coverage*
+*.psess
+*.vsp*
+_AppPackages/
+*.appx*
+*.msix*
+
+# C/C++/CMake
+build/
+[Cc]MakeCache.txt
+[Cc]MakeFiles/
+cmake-build-*/
+Makefile
+*.o
+*.obj
+*.elf
+*.map
+*.d
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+*.exe
+
+# ESP-IDF / VisualGDB / PlatformIO
+build/
+sdkconfig.old
+.vgdb/
+.visualgdb/
+.pio/
+*.bin
+*.elf
+*.map
+*.uf2
+*.flash_args
+
+# IAR (EWARM)
+EWARM/
+settings/
+[Dd]ebug/
+[Rr]elease/[Rr]elease/
+*.dep
+*.pbd
+*.ewt
+*.ewd
+*.ewp.backup
+*.eww.backup
+*.hex
+*.out
+*.xml
+*.props
+*.ninja_deps
+*.ninja_log
+*.rsp
+*.iar_deps
+[Dd]rivers/
+[Bb]rowseInfo/
+[Mm]iddlewares/
+[Ll]ibrary/
+# Android (MAUI/Gradle/NDK)
+.gradle/
+**/build/
+.cxx/
+*.apk
+*.aab
+local.properties
+
+# iOS/Xcode
+DerivedData/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+
+# Node.js
+node_modules/
+.npm/
+.yarn/*
+.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+dist/
+build/
+.eggs/
+.mypy_cache/
+.pytest_cache/
+
+# Secrets / local config
+*.p12
+*.keystore
+*.key
+*.crt
+*.pem
+*.cer
+*.pfx
+.env
+.env.*
+secrets/*.json
+*.local.json
+
+# Executables
+*.exe
+
+# Video
+*.mp4
+*.mkv
+*.mov
+*.avi
+*.wmv
+*.flv
+*.webm
+*.m4v
+*.mpg
+*.mpeg
+*.ts
+*.m2ts
+*.3gp
+*.3g2
+
+# Audio
+*.mp3
+*.wav
+*.flac
+*.aac
+*.ogg
+*.oga
+*.m4a
+*.wma
+*.opus
+*.aiff
+*.aif
+*.mid
+*.midi
+
+# Images / đồ họa
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tif
+*.tiff
+*.webp
+*.svg
+*.ico
+*.heic
+*.heif
+*.raw
+*.cr2
+*.nef
+*.arw
+*.rw2
+*.orf
+*.raf
+*.dng
+*.psd
+*.ai
+*.eps
+
+# .NET / MAUI chung
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+*.binlog
+*.svclog
+*.tlog
+*.cache
+*.tmp
 *.log
+publish/
+
+# MAUI Hot Reload / artifacts tạm
+**/obj/**/hotreload/
+**/obj/**/maui-*
+**/.vs/HotReload/
+
+# Android
+.gradle/
+.cxx/
+**/build/
+local.properties
+*.apk
+*.aab
+*.apks
+*.keystore
+
+# iOS / macOS / MacCatalyst (Xcode)
+DerivedData/
+*.xcuserstate
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+**/*.dSYM
+*.ipa
+
+# Windows (WinUI)
+AppPackages/
+*.appx*
+*.appxbundle
+*.appxsym
+*.msix*
+*.msixbundle
+*.msixsym
+
+# IDE phụ
+.vscode/
+.idea/
+
+# Secrets / chứng chỉ
+*.pfx
+*.p12
+*.snk
+*.key
+*.cer
+*.pem
+
+# Other
+[Pp]ackages/
+[Rr]esources/
+*.saproj
+*.pdf
+*.md
+.devcontainer/
+*.old
+*.sys
+*.inf
+*.xhex
+*.xbin
+
+# Archives / nén
+*.zip
+*.rar
+*.7z
+*.tar
+*.tgz
+*.tbz
+*.tbz2
+*.txz
+*.gz
+*.bz2
+*.xz
+*.lz
+*.lzma
+*.z
+*.cab
+*.iso
+*.img
+*.xz
+*.zst
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+
+# -----------------------------------------------------------------------------
+# OneDrive + TortoiseGit safety
+# -----------------------------------------------------------------------------
+# OneDrive conflict/temporary files. These files must not be committed.
+*.temp
+*.partial
+*.crdownload
+*.download
+*.uploading
+*.tmp.drivedownload
+*.tmp.driveupload
+*.icloud
+*.url
+
+# OneDrive conflict copies commonly generated during sync conflicts.
+* - Copy.*
+* - copy.*
+* (Conflicted copy*).*
+* (conflicted copy*).*
+* (Conflict*).*
+* (conflict*).*
+* (Autosaved*).*
+* (autosaved*).*
+* (Recovered*).*
+* (recovered*).*
+*~RF*
+
+# TortoiseGit / Git merge temporary files.
+*.BACKUP.*
+*.BASE.*
+*.LOCAL.*
+*.REMOTE.*
+*.rej
+
+# Local Git backup archives created after commit.
+# Recommended file names: repo_git_backup_YYYYMMDD_HHMMSS.zip or .git_YYYYMMDD.zip
+repo_git_backup_*.zip
+.git_*.zip
+git_backup_*.zip
+GitBackup/
+GitBackups/
+
+# Do not commit local backup/export folders.
+_backup/
+backup/
+backups/
+*.7z
+*.rar
+
+# -----------------------------------------------------------------------------
+# Keep source assets that are part of the app/firmware UI.
+# The broad image ignore rules above are for photos/media dumps; these exceptions
+# allow intentional project resources to be versioned.
+# -----------------------------------------------------------------------------
+!**/Resources/Images/**
+!**/Resources/AppIcon/**
+!**/Resources/Splash/**
+!**/Assets/**
+!**/assets/**
+!**/wwwroot/**

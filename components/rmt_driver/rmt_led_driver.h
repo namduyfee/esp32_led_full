@@ -8,12 +8,12 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
-#include "main.h"
 
 #include "driver/rmt_common.h"
 #include "driver/rmt_tx.h"
 #include "driver/rmt_types.h"
 #include "driver/rmt_encoder.h"
+#include "main.h"
 
 #define RMT_NUM_OF_CHANNEL 2
 #define RMT_RESOLUTION_HZ 10000000 // 10MHz resolution, 1 tick = 0.1us
@@ -58,6 +58,6 @@ typedef struct {
 
 } rmt_led_t;
 
-esp_err_t rmt_led_init(rmt_led_t* rmt, TypeLed type_led_channel0, TypeLed type_led_channel1);
+esp_err_t rmt_led_init(rmt_led_t *rmt, TypeLed type_led_channel0, TypeLed type_led_channel1);
 
 #endif

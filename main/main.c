@@ -5,7 +5,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_chip_info.h"
-#include "esp_flash.h"
 #include "esp_system.h"
 #include "esp_check.h"
 #include "esp_log.h"
@@ -14,9 +13,8 @@
 #include "rmt_led_driver.h"
 #include "i2s_driver.h"
 
-
-void task_strip_led(void* param);
-void task_audio_i2s(void* param);
+void task_make_led_signal(void *param);
+void task_make_audio_signal(void *param);
 
 static const char *TAG = "MAIN";
 
@@ -28,93 +26,162 @@ struct {
 } SLT;
 
 
+QueueHandle_t xAudioBufferList;
+QueueHandle_t xLedRequestList;
+
 void my_init(void)
 {
-    esp_chip_info(&SLT.chip_info);
-
-    printf("Chip model: %d\n", SLT.chip_info.model);
-    printf("CPU cores: %d\n",  SLT.chip_info.cores);
-    printf("Revision: %d\n",   SLT.chip_info.revision);
-    printf("Features: %lx\n",  SLT.chip_info.features);
+    /** start init */
     ESP_LOGI(TAG, "--- Start Init ---");
-
+    
     if(rmt_led_init(&SLT.led_rmt, WS2812, USC1903) != ESP_OK) esp_restart();
-    if(i2s_audio_init(&SLT.audio_i2s) != ESP_OK) esp_restart();
+    #if defined(I2S_PCM)
+    if(i2s_init_pcm_tx(&SLT.audio_i2s) != ESP_OK) esp_restart();
+    #elif   defined(I2S_PDM)
+    if(i2s_init_pdm_tx(&SLT.audio_i2s) != ESP_OK) esp_restart();
+    #endif
 
     ESP_LOGI(TAG, "--- End Init ---");
 }
 
 void app_main(void)
 {
+    /** init system */
     my_init();
-    xTaskCreate(task_strip_led, "task_strip_led", 1024, NULL, 4, NULL);
-    xTaskCreate(task_audio_i2s, "task_audio_i2s", 1024, NULL, 4, NULL);
+
+    /** creat Queue */
+    xAudioBufferList = xQueueCreate(10, sizeof(audio_buf_t));
+    xLedRequestList =  xQueueCreate(10, sizeof(request_strip_led_t)); 
+
+    /** creat Task */
+    xTaskCreate(task_make_led_signal, "task_make_led_signal", 1024, NULL, 4, NULL);
+    xTaskCreate(task_make_audio_signal, "task_make_audio_signal", 1024, NULL, 4, NULL);
+    
 }
 
-#define NUM_OF_LED 2000
-#define NUM_OF_BYTE (NUM_OF_LED * 3)
 /**
- * @brief   control led
+ * @brief   make signal rmt to control led
+ * @details
+ *  - send queue xLedRequestList to make request for this task
  * @note
- *  - rmt note copy value of payload, rmt save pointer to payload. So don't update value payload before transmited -> use rmt_tx_wait_all_done.
- * 
+ *  - rmt not copy value of payload, rmt save pointer to payload. So don't update value payload before transmited -> use rmt_tx_wait_all_done.
  */
-void task_strip_led(void* param)
+void task_make_led_signal(void *param)
 {
-    ESP_LOGI(TAG, "task_strip_led running");
-    uint8_t* led_strip_pixels = (uint8_t*)malloc(NUM_OF_BYTE);
-    
+    ESP_LOGI(TAG, "task_strip_led run");
+
     while(1) 
     {
-        memset(led_strip_pixels, 0x22, NUM_OF_BYTE);
-        ESP_ERROR_CHECK(rmt_transmit(SLT.led_rmt.channel0.handl, SLT.led_rmt.channel0.encoder.handl,led_strip_pixels, NUM_OF_BYTE, &SLT.led_rmt.channel0.trans_conf));
-        ESP_ERROR_CHECK(rmt_transmit(SLT.led_rmt.channel1.handl, SLT.led_rmt.channel1.encoder.handl,led_strip_pixels, NUM_OF_BYTE, &SLT.led_rmt.channel1.trans_conf));
-        
-        ESP_ERROR_CHECK(rmt_tx_wait_all_done(SLT.led_rmt.channel0.handl, portMAX_DELAY));
-        ESP_ERROR_CHECK(rmt_tx_wait_all_done(SLT.led_rmt.channel1.handl, portMAX_DELAY));
-        
-        vTaskDelay(pdMS_TO_TICKS(500));
+        request_strip_led_t req_tmp = {.channel0 = {.data = NULL, .tot_byte = 0}, .channel1 = {.data = NULL, .tot_byte = 0}};
+        bool channel0_requested = false; bool channel1_requested = false;
 
-        memset(led_strip_pixels, 0x00, NUM_OF_BYTE);
 
-        ESP_ERROR_CHECK(rmt_transmit(SLT.led_rmt.channel0.handl, SLT.led_rmt.channel0.encoder.handl,led_strip_pixels, NUM_OF_BYTE, &SLT.led_rmt.channel0.trans_conf));
-        ESP_ERROR_CHECK(rmt_transmit(SLT.led_rmt.channel1.handl, SLT.led_rmt.channel1.encoder.handl,led_strip_pixels, NUM_OF_BYTE, &SLT.led_rmt.channel1.trans_conf));
-        
-        ESP_ERROR_CHECK(rmt_tx_wait_all_done(SLT.led_rmt.channel0.handl, portMAX_DELAY));
-        ESP_ERROR_CHECK(rmt_tx_wait_all_done(SLT.led_rmt.channel1.handl, portMAX_DELAY));
-        
-        vTaskDelay(pdMS_TO_TICKS(500));        
+        if(xQueueReceive(xLedRequestList, &req_tmp, portMAX_DELAY) == pdTRUE) {
+
+            /** transmit channel0 if channel0 have new effect request */
+            if(req_tmp.channel0.data != NULL) {
+
+                esp_err_t ret = rmt_transmit(SLT.led_rmt.channel0.handl, 
+                    SLT.led_rmt.channel0.encoder.handl, 
+                    req_tmp.channel0.data, 
+                    req_tmp.channel0.tot_byte, &SLT.led_rmt.channel0.trans_conf); 
+                ESP_ERROR_CHECK(ret);
+                channel0_requested = true;
+
+            }
+
+            /** transmit channel1 if channel1 have new effect request */
+            if(req_tmp.channel1.data != NULL) {
+
+                esp_err_t ret = rmt_transmit(SLT.led_rmt.channel1.handl, 
+                    SLT.led_rmt.channel1.encoder.handl, 
+                    req_tmp.channel1.data, 
+                    req_tmp.channel1.tot_byte, &SLT.led_rmt.channel1.trans_conf); 
+                ESP_ERROR_CHECK(ret);
+                channel1_requested = true;
+
+            }
+
+            /** wait channel0 sent and free heap memory */
+            if(channel0_requested == true) {
+                ESP_ERROR_CHECK(rmt_tx_wait_all_done(SLT.led_rmt.channel0.handl, portMAX_DELAY));
+                if(req_tmp.channel0.data != NULL) {
+                    free(req_tmp.channel0.data); 
+                    req_tmp.channel0.data = NULL;
+                }
+                channel0_requested = false;
+            }
+
+            /** wait channel1 sent and free heap memory */
+            if(channel1_requested == true) {
+                ESP_ERROR_CHECK(rmt_tx_wait_all_done(SLT.led_rmt.channel1.handl, portMAX_DELAY));
+                if(req_tmp.channel1.data != NULL) {
+                    free(req_tmp.channel1.data); 
+                    req_tmp.channel1.data = NULL;
+                }
+                channel1_requested = false;
+            }            
+
+        }
+        vTaskDelay(pdMS_TO_TICKS(1));        
     }
-
 }
 
-#define NUM_SLOT 10000
 /**
  * @brief   handle audio with i2s
  * @note
- * 
- * 
+ *  - both pdm , pcm in both stereo, mono mode when dma copy data, it copy 32bits in once.
+ *  after that it use 16bits last before 16 bits first.
+ *  ex, (int16_t)data[1] is use before (int16_t)data[0].
+ *  -> actively swap pairs to get the correct result.
  */
-void task_audio_i2s(void* param)
+void task_make_audio_signal(void *param)
 {
-    ESP_LOGI(TAG, "task_audio_i2s running");
+    ESP_LOGI(TAG, "task_audio_i2s run");
 
-    uint16_t *data = malloc(NUM_SLOT * sizeof(uint16_t));
-    uint8_t *data_8bit = (uint8_t*)data;
     while(1)
     {
-        size_t byte_written = 0; 
-        size_t byte_loadded = 0;
-        for(int j = 0; j < NUM_SLOT; j++) data[j] = j;
-        while(byte_written < NUM_SLOT * sizeof(uint16_t)) {
-            esp_err_t ret = i2s_channel_write(SLT.audio_i2s.tx_handle, data_8bit + byte_written, NUM_SLOT * sizeof(uint16_t) - byte_written, &byte_loadded, portMAX_DELAY);
-            if(ret == ESP_OK) {
-                byte_written += byte_loadded;
+        audio_buf_t buf_tmp = {.data = NULL, .tot_byte = 0};
+
+        if(xQueueReceive(xAudioBufferList, &buf_tmp, portMAX_DELAY) == pdTRUE) {
+
+            if(buf_tmp.data != NULL) {
+                size_t offset = 0;
+
+                while (offset < buf_tmp.tot_byte)
+                {
+                    size_t remain = buf_tmp.tot_byte - offset;
+
+                    size_t send = remain > buf_tmp.tot_byte ? buf_tmp.tot_byte : remain;
+
+                    int16_t *s = (int16_t*)((uint8_t*)(buf_tmp.data) + offset);
+
+                    size_t sample_count = send / 2;
+                    
+                    /** swap data because i2s is big endian */
+                    for (size_t i = 0; i + 1 < sample_count; i += 2)
+                    {
+                        int16_t t = s[i];
+
+                        s[i] = s[i + 1];
+
+                        s[i + 1] = t;
+                    }
+
+                    size_t written;
+
+                    i2s_channel_write(SLT.audio_i2s.tx_handle, (uint8_t*)(buf_tmp.data) + offset,
+                    send, &written, portMAX_DELAY);
+
+                    offset += written;
+                }
+
+                free(buf_tmp.data); 
+                buf_tmp.data = NULL; 
             }
+                
         }
-        
-        vTaskDelay(pdMS_TO_TICKS(1000)); 
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 
 }
-

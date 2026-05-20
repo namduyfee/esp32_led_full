@@ -5,10 +5,10 @@ static const char *TAG = "RMT_LED_DRIVER";
 
 extern esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rmt_encoder_handle_t *ret_encoder, TypeLed led);
 
-static esp_err_t rmt_led_init_channel0(rmt_led_t* rmt, TypeLed led);
-static esp_err_t rmt_led_init_channel1(rmt_led_t* rmt, TypeLed led);
+static esp_err_t rmt_led_init_channel0(rmt_led_t *rmt, TypeLed led);
+static esp_err_t rmt_led_init_channel1(rmt_led_t *rmt, TypeLed led);
 
-esp_err_t rmt_led_init(rmt_led_t* rmt, TypeLed type_led_channel0, TypeLed type_led_channel1)
+esp_err_t rmt_led_init(rmt_led_t *rmt, TypeLed type_led_channel0, TypeLed type_led_channel1)
 {
 
     if( rmt_led_init_channel0(rmt, type_led_channel0) != ESP_OK) return ESP_FAIL;
@@ -33,7 +33,7 @@ esp_err_t rmt_led_init(rmt_led_t* rmt, TypeLed type_led_channel0, TypeLed type_l
     return ESP_OK;
 }
 
-static esp_err_t rmt_led_init_channel0(rmt_led_t* rmt, TypeLed led) 
+static esp_err_t rmt_led_init_channel0(rmt_led_t *rmt, TypeLed led) 
 {   
     /**< install encoder channel0 */
     {
@@ -87,7 +87,7 @@ static esp_err_t rmt_led_init_channel0(rmt_led_t* rmt, TypeLed led)
     return ESP_OK;
 }
 
-static esp_err_t rmt_led_init_channel1(rmt_led_t* rmt, TypeLed led) 
+static esp_err_t rmt_led_init_channel1(rmt_led_t *rmt, TypeLed led) 
 {
     /**< install encoder channel1 */
     {
