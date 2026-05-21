@@ -820,19 +820,6 @@ CONFIG_ESP_ERR_TO_NAME_LOOKUP=y
 # end of Common ESP-related
 
 #
-# ESP-Driver:DAC Configurations
-#
-# default:
-# CONFIG_DAC_CTRL_FUNC_IN_IRAM is not set
-# default:
-# CONFIG_DAC_ISR_IRAM_SAFE is not set
-# default:
-# CONFIG_DAC_ENABLE_DEBUG_LOG is not set
-# default:
-CONFIG_DAC_DMA_AUTO_16BIT_ALIGN=y
-# end of ESP-Driver:DAC Configurations
-
-#
 # ESP-Driver:GPIO Configurations
 #
 # default:
@@ -848,28 +835,6 @@ CONFIG_I2S_ISR_IRAM_SAFE=y
 # default:
 # CONFIG_I2S_ENABLE_DEBUG_LOG is not set
 # end of ESP-Driver:I2S Configurations
-
-#
-# ESP-Driver:RMT Configurations
-#
-# default:
-CONFIG_RMT_ENCODER_FUNC_IN_IRAM=y
-# default:
-CONFIG_RMT_TX_ISR_HANDLER_IN_IRAM=y
-# default:
-CONFIG_RMT_RX_ISR_HANDLER_IN_IRAM=y
-# default:
-# CONFIG_RMT_RECV_FUNC_IN_IRAM is not set
-CONFIG_RMT_TX_ISR_CACHE_SAFE=y
-# default:
-# CONFIG_RMT_RX_ISR_CACHE_SAFE is not set
-# default:
-CONFIG_RMT_OBJ_CACHE_SAFE=y
-# default:
-# CONFIG_RMT_ENABLE_DEBUG_LOG is not set
-# default:
-# CONFIG_RMT_ISR_IRAM_SAFE is not set
-# end of ESP-Driver:RMT Configurations
 
 #
 # Hardware Settings
