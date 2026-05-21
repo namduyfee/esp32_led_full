@@ -3,5 +3,4 @@ idf_component_register(SRCS "main.c"
                             i2s_driver
                             gpio_driver
                        INCLUDE_DIRS "."
-                       EMBED_FILES "../data/dlb.pcm"
                        )
